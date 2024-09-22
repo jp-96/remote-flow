@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
     private val tag = "Main Activity"
 
     private val coroutineScope = CoroutineScope(Dispatchers.Default)
-    private lateinit var remoteSharedFlow: RemoteSharedFlow
+    private lateinit var remoteSharedFlow: RemoteSharedFlow<StringValue>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,14 +63,14 @@ class MainActivity : ComponentActivity() {
 
         coroutineScope.launch {
             remoteSharedFlow.flow().collect {
-                println("$tag Response1: $it")
+                println("$tag Response1: ${it.text}")
             }
         }
 
         coroutineScope.launch {
             val counter = AtomicInteger(0)
             remoteSharedFlow.flow().collect {
-                println("$tag Response2: $it")
+                println("$tag Response2: ${it.text}")
                 if (counter.incrementAndGet() == 10)
                     this.cancel()
             }
@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
         coroutineScope.launch {
             for (i in 1..30) {
                 println("$tag sent: Hello there ($i)")
-                remoteSharedFlow.emit(StringFlowValue("$tag Hello there ($i)"))
+                remoteSharedFlow.emit(StringValue("$tag Hello there ($i)"))
                 delay(2000)
             }
         }
