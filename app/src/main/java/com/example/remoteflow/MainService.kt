@@ -19,26 +19,37 @@ import com.example.remoteflowlib.remoteSharedFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 class MainService : Service() {
 
-    private val tag = "Main Service"
+    companion object {
+        const val SERVICE_PACKAGE = "com.example.remoteflow"
+        const val SERVICE_NAME = "com.example.remoteflow.MainService"
+    }
 
     private lateinit var remoteSharedFlow: RemoteSharedFlow<String>
     private val coroutineScope = CoroutineScope(Dispatchers.Default)
 
     override fun onCreate() {
+        Timber.d("onCreate")
         super.onCreate()
         remoteSharedFlow = remoteSharedFlow()
         coroutineScope.launch {
             remoteSharedFlow.flow().collect {
-                println("$tag $it")
-                remoteSharedFlow.emit("$tag Received: $it")
+                Timber.d("Received: $it")
+                remoteSharedFlow.emit("Received: $it")
             }
         }
     }
 
     override fun onBind(intent: Intent?): IBinder {
+        Timber.d("onBind")
         return remoteSharedFlow.asBinder()
+    }
+
+    override fun onDestroy() {
+        Timber.d("onDestroy")
+        super.onDestroy()
     }
 }
