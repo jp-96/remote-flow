@@ -31,10 +31,12 @@ import kotlinx.coroutines.launch
 import java.net.BindException
 import java.util.concurrent.atomic.AtomicReference
 
+interface RemoteSharedValue{}
+
 interface RemoteSharedFlow {
     fun asBinder(): IBinder
-    fun emit(jsonString: String): Job
-    fun flow(): SharedFlow<String>
+    fun emit(jsonString: RemoteSharedValue): Job
+    fun flow(): SharedFlow<RemoteSharedValue>
 }
 
 fun remoteSharedFlow(
@@ -54,7 +56,7 @@ class RemoteSharedFlowImpl(
     private val remoteMessengers = AtomicReference<Messenger>()
     private val handler = Handler(Looper.getMainLooper(), this)
     private val localMessenger = Messenger(handler)
-    private val internalSharedFlow = MutableSharedFlow<String>()
+    private val internalSharedFlow = MutableSharedFlow<RemoteSharedValue>()
     private val readFlow = internalSharedFlow.asSharedFlow()
     private val coroutineScope = CoroutineScope(Dispatchers.Default)
 
@@ -90,7 +92,7 @@ class RemoteSharedFlowImpl(
         }
     }
 
-    override fun emit(jsonString:String) = coroutineScope.launch {
+    override fun emit(jsonString: RemoteSharedValue): Job = coroutineScope.launch {
 
         remoteMessengers.get()?.let { messenger ->
             val message = Message().apply {
@@ -109,8 +111,8 @@ class RemoteSharedFlowImpl(
             is Messenger -> {
                 remoteMessengers.set(msg.obj as Messenger)
             }
-            is String -> {
-                val jsonString = msg.obj as String
+            is RemoteSharedValue -> {
+                val jsonString = msg.obj as RemoteSharedValue
                 coroutineScope.launch {
                     internalSharedFlow.emit(jsonString)
                 }

@@ -33,7 +33,7 @@ class MainService: Service() {
         coroutineScope.launch {
             remoteSharedFlow.flow().collect {
                 println("$tag $it")
-                remoteSharedFlow.emit("$tag Received: $it")
+                remoteSharedFlow.emit(StringFlowValue("$tag Received: $it"))
             }
         }
     }

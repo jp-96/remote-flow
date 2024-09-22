@@ -77,9 +77,9 @@ class MainActivity : ComponentActivity() {
         }
 
         coroutineScope.launch {
-            for (i in 1..100) {
-                println("$tag sent: Hello there")
-                remoteSharedFlow.emit("$tag Hello there")
+            for (i in 1..30) {
+                println("$tag sent: Hello there ($i)")
+                remoteSharedFlow.emit(StringFlowValue("$tag Hello there ($i)"))
                 delay(2000)
             }
         }
