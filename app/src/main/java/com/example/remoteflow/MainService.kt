@@ -25,7 +25,7 @@ class MainService : Service() {
 
     companion object {
         const val SERVICE_PACKAGE = "com.example.remoteflow"
-        const val SERVICE_NAME ="$SERVICE_PACKAGE.MainService"
+        const val SERVICE_NAME = "$SERVICE_PACKAGE.MainService"
     }
 
     private lateinit var remoteSharedFlow: RemoteSharedFlow<String>
