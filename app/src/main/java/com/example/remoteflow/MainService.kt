@@ -20,11 +20,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-class MainService: Service() {
+class MainService : Service() {
 
     private val tag = "Main Service"
 
-    private lateinit var remoteSharedFlow: RemoteSharedFlow
+    private lateinit var remoteSharedFlow: RemoteSharedFlow<String>
     private val coroutineScope = CoroutineScope(Dispatchers.Default)
 
     override fun onCreate() {

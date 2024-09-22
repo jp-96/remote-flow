@@ -31,37 +31,38 @@ import kotlinx.coroutines.launch
 import java.net.BindException
 import java.util.concurrent.atomic.AtomicReference
 
-interface RemoteSharedFlow {
+interface RemoteSharedFlow<T> {
     fun asBinder(): IBinder
-    fun emit(jsonString: String): Job
-    fun flow(): SharedFlow<String>
+    fun emit(value: T): Job
+    fun flow(): SharedFlow<T>
 }
 
-fun remoteSharedFlow(
+fun <T> remoteSharedFlow(
     context: Context? = null,
     servicePackage: String? = null,
     serviceName: String? = null
-): RemoteSharedFlowImpl {
+): RemoteSharedFlowImpl<T> {
     return RemoteSharedFlowImpl(context, servicePackage, serviceName)
 }
 
-class RemoteSharedFlowImpl(
+class RemoteSharedFlowImpl<T>(
     context: Context? = null,
     servicePackage: String? = null,
     serviceName: String? = null
-) : Handler.Callback, RemoteSharedFlow {
+) : Handler.Callback, RemoteSharedFlow<T> {
 
     private val remoteMessengers = AtomicReference<Messenger>()
     private val handler = Handler(Looper.getMainLooper(), this)
     private val localMessenger = Messenger(handler)
-    private val internalSharedFlow = MutableSharedFlow<String>()
+    private val internalSharedFlow = MutableSharedFlow<T>()
     private val readFlow = internalSharedFlow.asSharedFlow()
     private val coroutineScope = CoroutineScope(Dispatchers.Default)
 
     init {
         context?.let {
             if (servicePackage != null &&
-                serviceName != null) {
+                serviceName != null
+            ) {
                 val intent = Intent().apply {
                     component = ComponentName(servicePackage, serviceName)
                 }
@@ -90,11 +91,11 @@ class RemoteSharedFlowImpl(
         }
     }
 
-    override fun emit(jsonString:String) = coroutineScope.launch {
+    override fun emit(value: T): Job = coroutineScope.launch {
 
         remoteMessengers.get()?.let { messenger ->
             val message = Message().apply {
-                obj = jsonString
+                obj = value
             }
             messenger.send(message)
         }
@@ -105,14 +106,18 @@ class RemoteSharedFlowImpl(
     override fun flow() = readFlow
 
     override fun handleMessage(msg: Message): Boolean {
-        when(msg.obj) {
+        when (msg.obj) {
             is Messenger -> {
                 remoteMessengers.set(msg.obj as Messenger)
             }
-            is String -> {
-                val jsonString = msg.obj as String
-                coroutineScope.launch {
-                    internalSharedFlow.emit(jsonString)
+
+            else -> {
+                @Suppress("UNCHECKED_CAST")
+                val remoteSharedFlowValue = msg.obj as? T
+                if (remoteSharedFlowValue != null) {
+                    coroutineScope.launch {
+                        internalSharedFlow.emit(remoteSharedFlowValue)
+                    }
                 }
             }
         }

@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
     private val tag = "Main Activity"
 
     private val coroutineScope = CoroutineScope(Dispatchers.Default)
-    private lateinit var remoteSharedFlow: RemoteSharedFlow
+    private lateinit var remoteSharedFlow: RemoteSharedFlow<String>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,9 +77,9 @@ class MainActivity : ComponentActivity() {
         }
 
         coroutineScope.launch {
-            for (i in 1..100) {
-                println("$tag sent: Hello there")
-                remoteSharedFlow.emit("$tag Hello there")
+            for (i in 1..30) {
+                println("$tag sent: Hello there ($i)")
+                remoteSharedFlow.emit("$tag Hello there ($i)")
                 delay(2000)
             }
         }
