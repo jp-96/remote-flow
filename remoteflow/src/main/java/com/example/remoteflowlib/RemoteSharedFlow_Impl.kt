@@ -31,15 +31,13 @@ import kotlinx.coroutines.launch
 import java.net.BindException
 import java.util.concurrent.atomic.AtomicReference
 
-interface RemoteSharedFlowValue {}
-
-interface RemoteSharedFlow<T : RemoteSharedFlowValue> {
+interface RemoteSharedFlow<T> {
     fun asBinder(): IBinder
     fun emit(value: T): Job
     fun flow(): SharedFlow<T>
 }
 
-fun <T : RemoteSharedFlowValue> remoteSharedFlow(
+fun <T> remoteSharedFlow(
     context: Context? = null,
     servicePackage: String? = null,
     serviceName: String? = null
@@ -47,7 +45,7 @@ fun <T : RemoteSharedFlowValue> remoteSharedFlow(
     return RemoteSharedFlowImpl(context, servicePackage, serviceName)
 }
 
-class RemoteSharedFlowImpl<T : RemoteSharedFlowValue>(
+class RemoteSharedFlowImpl<T>(
     context: Context? = null,
     servicePackage: String? = null,
     serviceName: String? = null
@@ -114,9 +112,12 @@ class RemoteSharedFlowImpl<T : RemoteSharedFlowValue>(
             }
 
             else -> {
-                val remoteSharedFlowValue = msg.obj as T
-                coroutineScope.launch {
-                    internalSharedFlow.emit(remoteSharedFlowValue)
+                @Suppress("UNCHECKED_CAST")
+                val remoteSharedFlowValue = msg.obj as? T
+                if (remoteSharedFlowValue != null) {
+                    coroutineScope.launch {
+                        internalSharedFlow.emit(remoteSharedFlowValue)
+                    }
                 }
             }
         }

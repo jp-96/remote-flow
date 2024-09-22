@@ -15,7 +15,6 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import com.example.remoteflowlib.RemoteSharedFlow
-import com.example.remoteflowlib.RemoteSharedFlowValue
 import com.example.remoteflowlib.remoteSharedFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +24,7 @@ class MainService : Service() {
 
     private val tag = "Main Service"
 
-    private lateinit var remoteSharedFlow: RemoteSharedFlow<RemoteSharedFlowValue>
+    private lateinit var remoteSharedFlow: RemoteSharedFlow<String>
     private val coroutineScope = CoroutineScope(Dispatchers.Default)
 
     override fun onCreate() {
@@ -33,8 +32,8 @@ class MainService : Service() {
         remoteSharedFlow = remoteSharedFlow()
         coroutineScope.launch {
             remoteSharedFlow.flow().collect {
-                println("$tag {$it.text}")
-                remoteSharedFlow.emit(StringValue("$tag Received: {$it.text}"))
+                println("$tag $it")
+                remoteSharedFlow.emit("$tag Received: $it")
             }
         }
     }
