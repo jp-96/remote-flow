@@ -12,10 +12,11 @@
 package com.example.remoteflow
 
 import android.app.PendingIntent
-import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
+import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.coroutineScope
 import com.example.remoteflowlib.RemoteSharedFlow
 import com.example.remoteflowlib.remoteSharedFlow
 import kotlinx.coroutines.CoroutineScope
@@ -37,10 +38,11 @@ object MainServiceCompanion {
     }
 
     val foregroundServiceStateFlow = MutableStateFlow(false)
-    fun setForegroundServiceState(){
+    fun setForegroundServiceState() {
         foregroundServiceStateFlow.value = true
     }
-    fun resetForegroundServiceState(){
+
+    fun resetForegroundServiceState() {
         foregroundServiceStateFlow.value = false
     }
 
@@ -67,7 +69,7 @@ object MainServiceCompanion {
 
 }
 
-class MainService : Service() {
+class MainService : LifecycleService() {
 
     companion object {
         private const val NOTIFICATION_ID = 1
@@ -78,11 +80,7 @@ class MainService : Service() {
     private lateinit var remoteSharedFlow: RemoteSharedFlow<String>
     private var remoteSharedFlowJob: Job? = null
 
-    private val isActiveRemoteSharedFlow: Boolean
-        get() = remoteSharedFlowJob?.isActive == true
-
     private fun initRemoteSharedFlow() {
-        if (isActiveRemoteSharedFlow) return
         remoteSharedFlow = remoteSharedFlow()
         val coroutineScope = CoroutineScope(Dispatchers.Default)
         remoteSharedFlowJob = coroutineScope.launch {
@@ -127,7 +125,8 @@ class MainService : Service() {
                 .setContentIntent(mainActivityPendingIntent)
                 .setOngoing(true)
         }
-        val coroutineScope = CoroutineScope(Dispatchers.Default)
+//        val coroutineScope = CoroutineScope(Dispatchers.Default)
+        val coroutineScope = lifecycle.coroutineScope
         foregroundJob = coroutineScope.launch {
             var counter = 0
             while (true) {
@@ -154,6 +153,7 @@ class MainService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Timber.d("onStartCommand $intent")
+        super.onStartCommand(intent, flags, startId)
         intent?.let {
             when (it.action) {
                 MainServiceCompanion.ACTION_FOREGROUND_START -> {
@@ -162,24 +162,24 @@ class MainService : Service() {
 
                 MainServiceCompanion.ACTION_FOREGROUND_STOP -> {
                     stopForegroundService()
-                    stopSelf()
+                    stopSelf()  // be able to destroy
                 }
             }
         }
         return START_NOT_STICKY
     }
 
-    override fun onBind(intent: Intent?): IBinder {
+    override fun onBind(intent: Intent): IBinder {
         Timber.d("onBind")
+        super.onBind(intent)
         return remoteSharedFlow.asBinder()
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         Timber.d("onTaskRemoved")
         super.onTaskRemoved(rootIntent)
-        // stop all
-        stopForegroundService()
-        stopRemoteSharedFlow()
+        // destroy
+        stopSelf()
     }
 
     override fun onDestroy() {
