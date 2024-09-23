@@ -15,6 +15,7 @@
         <activity
             android:name="com.example.remoteflow.MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.RemoterFlow">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -23,7 +24,7 @@
             </intent-filter>
         </activity>
 
-        <service android:name="com.example.remoteflow.MainService"/>
+        <service android:name="com.example.remoteflow.MainService" />
     </application>
 
 </manifest>

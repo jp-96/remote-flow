@@ -35,6 +35,7 @@ interface RemoteSharedFlow<T> {
     fun asBinder(): IBinder
     fun emit(value: T): Job
     fun flow(): SharedFlow<T>
+    fun unbindService()
 }
 
 fun <T> remoteSharedFlow(
@@ -46,12 +47,30 @@ fun <T> remoteSharedFlow(
 }
 
 class RemoteSharedFlowImpl<T>(
-    context: Context? = null,
+    private val context: Context? = null,
     servicePackage: String? = null,
     serviceName: String? = null
 ) : Handler.Callback, RemoteSharedFlow<T> {
 
     private val remoteMessengers = AtomicReference<Messenger>()
+    private var serviceConnectionBound = false
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(component: ComponentName?, binder: IBinder?) {
+            binder?.let { messenger ->
+                val remoteMessenger = Messenger(messenger)
+                remoteMessengers.set(remoteMessenger)
+                remoteMessenger.send(
+                    Message().apply {
+                        obj = localMessenger
+                    }
+                )
+            }
+        }
+
+        override fun onServiceDisconnected(p0: ComponentName?) {
+            TODO("Not yet implemented")
+        }
+    }
     private val handler = Handler(Looper.getMainLooper(), this)
     private val localMessenger = Messenger(handler)
     private val internalSharedFlow = MutableSharedFlow<T>()
@@ -66,33 +85,16 @@ class RemoteSharedFlowImpl<T>(
                 val intent = Intent().apply {
                     component = ComponentName(servicePackage, serviceName)
                 }
-                val serviceConnection = object : ServiceConnection {
-                    override fun onServiceConnected(component: ComponentName?, binder: IBinder?) {
-                        binder?.let { messenger ->
-                            val remoteMessenger = Messenger(messenger)
-                            remoteMessengers.set(remoteMessenger)
-                            remoteMessenger.send(
-                                Message().apply {
-                                    obj = localMessenger
-                                }
-                            )
-                        }
-                    }
-
-                    override fun onServiceDisconnected(p0: ComponentName?) {
-                        TODO("Not yet implemented")
-                    }
-                }
                 if (!it.bindService(intent, serviceConnection, Service.BIND_AUTO_CREATE)) {
                     it.unbindService(serviceConnection)
                     throw BindException()
                 }
+                serviceConnectionBound = true
             }
         }
     }
 
     override fun emit(value: T): Job = coroutineScope.launch {
-
         remoteMessengers.get()?.let { messenger ->
             val message = Message().apply {
                 obj = value
@@ -104,6 +106,13 @@ class RemoteSharedFlowImpl<T>(
     override fun asBinder(): IBinder = localMessenger.binder
 
     override fun flow() = readFlow
+
+    override fun unbindService() {
+        if (serviceConnectionBound) {
+            serviceConnectionBound = false
+            context?.unbindService(serviceConnection)
+        }
+    }
 
     override fun handleMessage(msg: Message): Boolean {
         when (msg.obj) {
@@ -123,4 +132,5 @@ class RemoteSharedFlowImpl<T>(
         }
         return true
     }
+
 }
