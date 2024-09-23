@@ -1,5 +1,6 @@
-package com.example.remoteflowlib
+package com.example.remoteflow
 
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
@@ -35,6 +36,7 @@ class ForegroundServiceManagerImpl(
         const val DEFAULT_NOTIFICATION_CHANNEL_NAME = "in service"
     }
 
+    @SuppressLint("ForegroundServiceType")
     override fun start(
         service: Service,
         builder: (notification: NotificationCompat.Builder) -> Unit

@@ -16,12 +16,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
-import com.example.remoteflow.R
-import com.example.remoteflow.MainServiceCompanion.ACTION_START
-import com.example.remoteflow.MainServiceCompanion.ACTION_STOP
-import com.example.remoteflow.MainServiceCompanion.foregroundServiceStateFlow
 import com.example.remoteflowlib.RemoteSharedFlow
-import com.example.remoteflowlib.foregroundServiceManager
 import com.example.remoteflowlib.remoteSharedFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,33 +30,40 @@ object MainServiceCompanion {
 
     private const val SERVICE_PACKAGE = "com.example.remoteflow"
     private const val SERVICE_NAME = "$SERVICE_PACKAGE.MainService"
+    private val SERVICE_CLASS = MainService::class.java
 
-    fun remoteServiceSharedFlow(context: Context): RemoteSharedFlow<String> {
+    fun serviceStringFlow(context: Context): RemoteSharedFlow<String> {
         return remoteSharedFlow(context, SERVICE_PACKAGE, SERVICE_NAME)
     }
 
-    const val ACTION_START = "ACTION_START"
-    const val ACTION_STOP = "ACTION_STOP"
+    val foregroundServiceStateFlow = MutableStateFlow(false)
+    fun setForegroundServiceState(){
+        foregroundServiceStateFlow.value = true
+    }
+    fun resetForegroundServiceState(){
+        foregroundServiceStateFlow.value = false
+    }
+
+    const val ACTION_FOREGROUND_START = "ACTION_FOREGROUND_START"
+    const val ACTION_FOREGROUND_STOP = "ACTION_FOREGROUND_STOP"
 
     /**
      * AndroidManifest.xml <service/>
      */
     private fun sendAction(context: Context, action: String) {
-        Intent(context, MainService::class.java).also {
+        Intent(context, SERVICE_CLASS).also {
             it.action = action
             context.startService(it)
         }
     }
 
-    fun sendActionStart(context: Context) {
-        sendAction(context, ACTION_START)
+    fun startForegroundService(context: Context) {
+        sendAction(context, ACTION_FOREGROUND_START)
     }
 
-    fun sendActionStop(context: Context) {
-        sendAction(context, ACTION_STOP)
+    fun stopForegroundService(context: Context) {
+        sendAction(context, ACTION_FOREGROUND_STOP)
     }
-
-    val foregroundServiceStateFlow = MutableStateFlow(false)
 
 }
 
@@ -79,17 +81,14 @@ class MainService : Service() {
     private val isActiveRemoteSharedFlow: Boolean
         get() = remoteSharedFlowJob?.isActive == true
 
-    private fun startRemoteSharedFlow() {
+    private fun initRemoteSharedFlow() {
         if (isActiveRemoteSharedFlow) return
+        remoteSharedFlow = remoteSharedFlow()
         val coroutineScope = CoroutineScope(Dispatchers.Default)
         remoteSharedFlowJob = coroutineScope.launch {
             remoteSharedFlow.flow().collect {
                 Timber.d("Received: $it")
-                when (it) {
-                    "start" -> startForegroundService()
-                    "stop" -> stopForegroundService()
-                    else -> remoteSharedFlow.emit("Received: $it")
-                }
+                remoteSharedFlow.emit("Received: $it")
             }
         }
     }
@@ -111,8 +110,8 @@ class MainService : Service() {
         get() = foregroundJob?.isActive == true
 
     private fun startForegroundService() {
-        foregroundServiceStateFlow.value = true
         if (isActiveForegroundService) return
+        MainServiceCompanion.setForegroundServiceState()
         foregroundServiceManager.start(this) { notification ->
             // modify notification
             val mainActivityPendingIntent = PendingIntent.getActivity(
@@ -140,30 +139,30 @@ class MainService : Service() {
     }
 
     private fun stopForegroundService() {
+        if (!isActiveForegroundService) return
         foregroundJob?.cancel()
         foregroundJob = null
         foregroundServiceManager.stop(this)
-        foregroundServiceStateFlow.value = false
+        MainServiceCompanion.resetForegroundServiceState()
     }
 
     override fun onCreate() {
         Timber.d("onCreate")
         super.onCreate()
-        remoteSharedFlow = remoteSharedFlow()
+        initRemoteSharedFlow()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Timber.d("onStartCommand $intent")
         intent?.let {
             when (it.action) {
-                ACTION_START -> {
-                    startRemoteSharedFlow()
+                MainServiceCompanion.ACTION_FOREGROUND_START -> {
+                    startForegroundService()
                 }
-                ACTION_STOP -> {
-                    stopRemoteSharedFlow()
-                    if (!isActiveForegroundService) {
-                        stopSelf()
-                    }
+
+                MainServiceCompanion.ACTION_FOREGROUND_STOP -> {
+                    stopForegroundService()
+                    stopSelf()
                 }
             }
         }
@@ -178,7 +177,7 @@ class MainService : Service() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         Timber.d("onTaskRemoved")
         super.onTaskRemoved(rootIntent)
-        // stop
+        // stop all
         stopForegroundService()
         stopRemoteSharedFlow()
     }
@@ -186,7 +185,7 @@ class MainService : Service() {
     override fun onDestroy() {
         Timber.d("onDestroy")
         super.onDestroy()
-        // stop
+        // stop all
         stopForegroundService()
         stopRemoteSharedFlow()
     }

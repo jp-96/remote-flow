@@ -38,9 +38,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.remoteflow.MainServiceCompanion.remoteServiceSharedFlow
-import com.example.remoteflow.MainServiceCompanion.sendActionStart
-import com.example.remoteflow.MainServiceCompanion.sendActionStop
+import com.example.remoteflow.MainServiceCompanion.serviceStringFlow
+import com.example.remoteflow.MainServiceCompanion.startForegroundService
+import com.example.remoteflow.MainServiceCompanion.stopForegroundService
 import com.example.remoteflow.theme.RemoterFlowTheme
 import com.example.remoteflowlib.RemoteSharedFlow
 import kotlinx.coroutines.CoroutineScope
@@ -86,9 +86,7 @@ class MainActivity : ComponentActivity() {
                             Button(
                                 onClick = {
                                     isServiceForegroundActive = null
-                                    coroutineScope.launch {
-                                        remoteSharedFlow.emit("start")
-                                    }
+                                    startForegroundService(this@MainActivity)
                                 },
                                 // Uses ButtonDefaults.ContentPadding by default
                                 contentPadding = PaddingValues(
@@ -112,9 +110,7 @@ class MainActivity : ComponentActivity() {
                             Button(
                                 onClick = {
                                     isServiceForegroundActive = null
-                                    coroutineScope.launch {
-                                        remoteSharedFlow.emit("stop")
-                                    }
+                                    stopForegroundService(this@MainActivity)
                                 },
                                 // Uses ButtonDefaults.ContentPadding by default
                                 contentPadding = PaddingValues(
@@ -149,11 +145,8 @@ class MainActivity : ComponentActivity() {
         Timber.d("onResume")
         super.onResume()
 
-        // service - start service
-        sendActionStart(this)
-
         // service - bind service
-        remoteSharedFlow = remoteServiceSharedFlow(this)
+        remoteSharedFlow = serviceStringFlow(this)
 
         coroutineScope = CoroutineScope(kotlinx.coroutines.Dispatchers.Default)
 
@@ -208,8 +201,6 @@ class MainActivity : ComponentActivity() {
         coroutineScope.cancel()
         remoteSharedFlow.unbindService()
 
-        // service - stop service
-        sendActionStop(this)
     }
 
 }
